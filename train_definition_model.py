@@ -447,9 +447,9 @@ def query_model(sess,
 def main(unused_argv):
     """Calls train and test routines for the dictionary model.
 
-  If restore FLAG is true, loads an existing model and runs test
-  routine. If restore FLAG is false, builds a model and trains it.
-  """
+    If restore FLAG is true, loads an existing model and runs test
+    routine. If restore FLAG is false, builds a model and trains it.
+    """
     if FLAGS.vocab_file is None:
         vocab_file = os.path.join(FLAGS.data_dir,
                                   "definitions_%s.vocab" % FLAGS.vocab_size)
