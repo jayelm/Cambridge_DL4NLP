@@ -1,0 +1,5 @@
+logs/*
+!logs/README.md
+
+*.pyc
+__pycache__/
