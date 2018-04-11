@@ -51,6 +51,7 @@ tf.app.flags.DEFINE_string("dev_file", "'dev.definitions.ids100000",
                            "File with dictionary definitions for dev testing.")
 tf.app.flags.DEFINE_string("save_dir", "/tmp/", "Directory for saving model."
                            "If using restore=True, directory to restore from.")
+tf.app.flags.DEFINE_string("summary_dir", "./logs/", "Directory for tensorboard summaries.")
 tf.app.flags.DEFINE_boolean("restore", False, "Restore a trained model"
                             "instead of training one.")
 tf.app.flags.DEFINE_boolean("evaluate", False, "Evaluate model (needs"
@@ -154,6 +155,13 @@ def gen_epochs(data_path, total_epochs, batch_size, vocab_size, phase="train"):
         yield gen_batch(raw_data, batch_size)
 
 
+def gen_epochs_with_data(raw_data, total_epochs, batch_size, vocab_size, phase="train"):
+    # Read all of the glosses and heads into two arrays.
+    # Return a generator over the data.
+    for _ in range(total_epochs):
+        yield gen_batch(raw_data, batch_size)
+
+
 def build_model(max_seq_len,
                 vocab_size,
                 emb_size,
@@ -164,36 +172,36 @@ def build_model(max_seq_len,
                 pre_embs=None):
     """Build the dictionary model including loss function.
 
-  Args:
-    max_seq_len: maximum length of gloss.
-    vocab_size: number of words in vocab.
-    emb_size: size of the word embeddings.
-    learning_rate: learning rate for the optimizer.
-    encoder_type: method of encoding (RRN or BOW).
-    pretrained_target: Boolean indicating pre-trained head embeddings.
-    pretrained_input: Boolean indicating pre-trained gloss word embeddings.
-    pre_embs: pre-trained embedding matrix.
+    Args:
+        max_seq_len: maximum length of gloss.
+        vocab_size: number of words in vocab.
+        emb_size: size of the word embeddings.
+        learning_rate: learning rate for the optimizer.
+        encoder_type: method of encoding (RRN or BOW).
+        pretrained_target: Boolean indicating pre-trained head embeddings.
+        pretrained_input: Boolean indicating pre-trained gloss word embeddings.
+        pre_embs: pre-trained embedding matrix.
 
-  Returns:
-    tuple of (gloss_in, head_in, total_loss, train_step, output_form)
+    Returns:
+        tuple of (gloss_in, head_in, total_loss, train_step, output_form)
 
-  Creates the embedding matrix for the input, which is split into the
-  glosses (definitions) and the heads (targets). So checks if there are
-  pre-trained embeddings for the glosses or heads, and if not sets up
-  some trainable embeddings. The default is to have pre-trained
-  embeddings for the heads but not the glosses.
+    Creates the embedding matrix for the input, which is split into the
+    glosses (definitions) and the heads (targets). So checks if there are
+    pre-trained embeddings for the glosses or heads, and if not sets up
+    some trainable embeddings. The default is to have pre-trained
+    embeddings for the heads but not the glosses.
 
-  The encoder for the glosses is either an RNN (with LSTM cell) or a
-  bag-of-words model (in which the word vectors are simply
-  averaged). For the RNN, the output is the output vector for the
-  final state.
+    The encoder for the glosses is either an RNN (with LSTM cell) or a
+    bag-of-words model (in which the word vectors are simply
+    averaged). For the RNN, the output is the output vector for the
+    final state.
 
-  If the heads are pre-trained, the output of the encoder is put thro'
-  a non-linear layer, and the loss is the cosine distance. Without
-  pre-trained heads, a linear layer on top of the encoder output is
-  used to predict logits for the words in the vocabulary, and the loss
-  is cross-entropy.
-  """
+    If the heads are pre-trained, the output of the encoder is put thro'
+    a non-linear layer, and the loss is the cosine distance. Without
+    pre-trained heads, a linear layer on top of the encoder output is
+    used to predict logits for the words in the vocabulary, and the loss
+    is cross-entropy.
+    """
     # Build the TF graph on the GPU.
     with tf.device("/device:GPU:0"):
         tf.reset_default_graph()
@@ -276,21 +284,40 @@ def train_network(model,
                   save_dir,
                   vocab_size,
                   name="model",
+                  eval_dev=False,
+                  pre_embs=None,
                   verbose=True):
+
     # Running count of the number of training instances.
     num_training = 0
     # saver object for saving the model after each epoch.
     saver = tf.train.Saver()
     with tf.Session(config=tf.ConfigProto(log_device_placement=True)) as sess:
-        gloss_in, head_in, total_loss, train_step, _ = model
+        gloss_in, head_in, total_loss, train_step, out_form = model
+        # Summaries for tensorboard
+        tf.summary.scalar("training loss", total_loss)
+        summary_op = tf.summary.merge_all()
+        graph = tf.get_default_graph()
+        writer = tf.summary.FileWriter(FLAGS.summary_dir, graph=graph)
+        if out_form == "softmax":
+            predictions = graph.get_tensor_by_name("predictions:0")
+        else:
+            predictions = graph.get_tensor_by_name("fully_connected/Tanh:0")
+        print(out_form)
+        print(predictions)
+
         # Initialize the model parameters.
         sess.run(tf.global_variables_initializer())
         # Record all training losses for potential reporting.
         training_losses = []
         # epoch is a generator of batches which passes over the data once.
+        # Get number of batches from the data
+        raw_data = read_data(data_dir, vocab_size, 'train')
+        data_length = len(raw_data[0])
+        num_batches = data_length // batch_size
         for idx, epoch in enumerate(
-                gen_epochs(
-                    data_dir,
+                gen_epochs_with_data(
+                    raw_data,
                     num_epochs,
                     batch_size,
                     vocab_size,
@@ -299,18 +326,16 @@ def train_network(model,
             training_loss = 0
             if verbose:
                 print("\nEPOCH", idx)
-                print(input_node)
-                print(gloss.shape)
-                print(head.shape)
-                print(target_node)
             for step, (gloss, head) in enumerate(epoch):
                 num_training += len(gloss)
-                training_loss_, _ = sess.run(
-                    [total_loss, train_step],
+                training_loss_, _, summary = sess.run(
+                    [total_loss, train_step, summary_op],
                     feed_dict={
-                        input_node: gloss,
-                        target_node: head
+                        gloss_in: gloss,
+                        head_in: head
                     })
+                global_step = (idx * num_batches) + step
+                writer.add_summary(summary, global_step)
                 training_loss += training_loss_
                 if step % 500 == 0 and step > 0:
                     if verbose:
@@ -323,6 +348,20 @@ def train_network(model,
             save_path = os.path.join(save_dir, "%s_%s.ckpt" % (name, idx))
             save_path = saver.save(sess, save_path)
             print("Model saved in file: %s after epoch: %s" % (save_path, idx))
+            if eval_dev:
+                median_rank = evaluate_model(
+                    sess,
+                    FLAGS.data_dir,
+                    gloss_in,
+                    head_in,
+                    predictions,
+                    total_loss,
+                    embs=pre_embs,
+                    out_form="cosine")
+            summary = tf.Summary(value=[
+                tf.Summary.Value(tag="dev_median_rank",
+                                 simple_value=median_rank)])
+            writer.add_summary(summary, global_step)
         print("Total data points seen during training: %s" % num_training)
         return save_dir, saver
 
@@ -364,6 +403,7 @@ def evaluate_model(sess,
     ]).squeeze()
     median_rank = np.median(ranks)
     print("Dev median rank: {}".format(median_rank))
+    return median_rank
 
 
 def restore_model(sess, save_dir, vocab_file, out_form):
@@ -503,7 +543,9 @@ def main(unused_argv):
             FLAGS.data_dir,
             FLAGS.save_dir,
             FLAGS.vocab_size,
-            name=FLAGS.model_name)
+            name=FLAGS.model_name,
+            pre_embs=pre_embs,
+            eval_dev=True)
 
     # Load an existing model.
     else:
