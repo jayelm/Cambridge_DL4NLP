@@ -1,5 +1,8 @@
 logs/*
 !logs/README.md
 
+saves/*
+!saves/README.md
+
 *.pyc
 __pycache__/
