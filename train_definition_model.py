@@ -66,8 +66,22 @@ tf.app.flags.DEFINE_string("embeddings_path",
                            "Path to pre-trained (.pkl) word embeddings.")
 tf.app.flags.DEFINE_string("encoder_type", "recurrent", "BOW or recurrent.")
 tf.app.flags.DEFINE_string("model_name", "recurrent", "BOW or recurrent.")
+tf.app.flags.DEFINE_string("optimizer", "adam", "adam, rmsprop, or gradientdescent")
 
 FLAGS = tf.app.flags.FLAGS
+
+
+OPTIMIZERS = {
+    'adam': tf.train.AdamOptimizer,
+    'rmsprop': tf.train.RMSPropOptimizer,
+    'gradientdescent': tf.train.GradientDescentOptimizer,
+}
+
+
+try:
+    optimizer = OPTIMIZERS[FLAGS.optimizer]
+except KeyError:
+    raise ArgumentError("Unknown optimizer {}".format(FLAGS.optimizer))
 
 
 def read_data(data_path, vocab_size, phase="train"):
@@ -273,7 +287,7 @@ def build_model(max_seq_len,
             output_form = "softmax"
         # Average loss across batch.
         total_loss = tf.reduce_mean(losses, name="total_loss")
-        train_step = tf.train.AdamOptimizer(learning_rate).minimize(total_loss)
+        train_step = optimizer(learning_rate).minimize(total_loss)
         return gloss_in, head_in, total_loss, train_step, output_form
 
 
