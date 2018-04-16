@@ -14,4 +14,7 @@ Download GloVe embeddings:
 
 Parse them into Felix's format:
 
-    python parse_glove_embeddings.py
+    # Generates ./glove.6B.300d.pkl
+    python parse_glove_embeddings.py ./glove.6B.300d.txt
+
+To generate mimick embeddings, use `train_mimick.sh` in the parent diretory after downloading GloVe embeddings and parsing them with `parse_glove_embeddings.py`

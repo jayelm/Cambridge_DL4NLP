@@ -1,3 +1,4 @@
 [submodule "Mimick"]
 	path = Mimick
 	url = https://github.com/yuvalpinter/Mimick
+    ignore = dirty
