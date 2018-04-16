@@ -61,6 +61,10 @@ tf.app.flags.DEFINE_boolean("pretrained_target", True,
                             "Use pre-trained embeddings for head words.")
 tf.app.flags.DEFINE_boolean("pretrained_input", False,
                             "Use pre-trained embeddings for gloss words.")
+tf.app.flags.DEFINE_boolean("input_trainable", False,
+                            "Allow further refining of gloss words")
+tf.app.flags.DEFINE_string("oov_init", "constant",
+                            "How to initialize oov words in pretrained input")
 tf.app.flags.DEFINE_string("embeddings_path",
                            "./embeddings/GoogleWord2Vec.clean.normed.pkl",
                            "Path to pre-trained (.pkl) word embeddings.")
@@ -139,8 +143,14 @@ def load_pretrained_embeddings(embeddings_file_path):
     return pre_embs_dict, embedding_length
 
 
-def get_embedding_matrix(embedding_dict, vocab, emb_dim):
-    emb_matrix = np.zeros([len(vocab), emb_dim])
+def get_embedding_matrix(embedding_dict, vocab, emb_dim,
+                         oov_init='constant'):
+    if oov_init == 'constant':
+        emb_matrix = np.zeros([len(vocab), emb_dim])
+    elif oov_init == 'normal':
+        emb_matrix = np.random.normal(size=[len(vocab), emb_dim])
+    else:
+        raise NotImplementedError
     for word, ii in vocab.items():
         if word in embedding_dict:
             emb_matrix[ii] = embedding_dict[word]
@@ -183,6 +193,7 @@ def build_model(max_seq_len,
                 encoder_type,
                 pretrained_target=True,
                 pretrained_input=False,
+                input_trainable=False,
                 pre_embs=None):
     """Build the dictionary model including loss function.
 
@@ -232,7 +243,7 @@ def build_model(max_seq_len,
                     name="inp_emb",
                     shape=[vocab_size, emb_size],
                     initializer=tf.constant_initializer(pre_embs),
-                    trainable=False)
+                    trainable=input_trainable)
             else:
                 # embedding_matrix is learned.
                 embedding_matrix = tf.get_variable(
@@ -531,12 +542,13 @@ def main(unused_argv):
             vocabulary_size=FLAGS.vocab_size,
             max_seq_len=FLAGS.max_seq_len)
         # vocab is a dictionary from strings to integers.
-        vocab, _ = data_utils.initialize_vocabulary(vocab_file)
+        vocab, rev_vocab = data_utils.initialize_vocabulary(vocab_file)
         pre_embs = None
         if FLAGS.pretrained_input or FLAGS.pretrained_target:
             # pre_embs is a numpy array with row vectors for words in vocab.
             # for vocab words not in embs_dict, vector is all zeros.
-            pre_embs = get_embedding_matrix(embs_dict, vocab, pre_emb_dim)
+            pre_embs = get_embedding_matrix(embs_dict, vocab, pre_emb_dim,
+                                            FLAGS.oov_init)
 
         # Build the TF graph for the dictionary model.
         model = build_model(
@@ -547,6 +559,7 @@ def main(unused_argv):
             encoder_type=FLAGS.encoder_type,
             pretrained_target=FLAGS.pretrained_target,
             pretrained_input=FLAGS.pretrained_input,
+            input_trainable=FLAGS.input_trainable,
             pre_embs=pre_embs)
 
         # Run the training for specified number of epochs.
@@ -569,7 +582,7 @@ def main(unused_argv):
             embs_dict, pre_emb_dim = load_pretrained_embeddings(
                 FLAGS.embeddings_path)
             vocab, _ = data_utils.initialize_vocabulary(vocab_file)
-            pre_embs = get_embedding_matrix(embs_dict, vocab, pre_emb_dim)
+            pre_embs = get_embedding_matrix(embs_dict, vocab, pre_emb_dim, FLAGS.oov_init)
 
         with tf.device("/cpu:0"):
             with tf.Session() as sess:
