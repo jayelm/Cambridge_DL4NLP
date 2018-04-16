@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 # ADAM (default)
 # python3 train_definition_model.py --summary_dir ./logs/default_params/ --save_dir ./saves/default_params/ --num_epochs 100
 
@@ -19,7 +21,7 @@ python3 train_definition_model.py --summary_dir ./logs/rnn_rmsprop_glove/ --save
 python3 train_definition_model.py --summary_dir ./logs/bow_rmsprop_glove_pretrained/ --save_dir ./saves/bow_rmsprop_glove_pretrained/ --num_epochs 100 --encoder_type BOW --model_name BOW --optimizer rmsprop --pretrained_input --embeddings_path ./embeddings/glove.6B.300d.pkl
 
 # BOW, rmsprop, glove, pretrained input, but further refine
-python3 train_definition_model.py --summary_dir ./logs/bow_rmsprop_glove_pretrained/ --save_dir ./saves/bow_rmsprop_glove_pretrained/ --num_epochs 100 --encoder_type BOW --model_name BOW --optimizer rmsprop --pretrained_input --embeddings_path ./embeddings/glove.6B.300d.pkl --input_trainable --oov_init normal
+python3 train_definition_model.py --summary_dir ./logs/bow_rmsprop_glove_pretrained_refine/ --save_dir ./saves/bow_rmsprop_glove_pretrained_refine/ --num_epochs 100 --encoder_type BOW --model_name BOW --optimizer rmsprop --pretrained_input --embeddings_path ./embeddings/glove.6B.300d.pkl --input_trainable --oov_init normal
 
 # Faster learning rates
 # python3 train_definition_model.py --summary_dir ./logs/adam_001/ --save_dir ./saves/adam_001/ --num_epochs 100 --learning_rate 0.001
