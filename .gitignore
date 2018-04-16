@@ -8,6 +8,7 @@ saves/*
 __pycache__/
 
 embeddings/*
+!embeddings/*.py
 !embeddings/README.md
 
 data/*
