@@ -6,3 +6,9 @@ saves/*
 
 *.pyc
 __pycache__/
+
+embeddings/*
+!embeddings/README.md
+
+data/*
+!data/README.md

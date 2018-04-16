@@ -42,7 +42,7 @@ tf.app.flags.DEFINE_integer("vocab_size", 100000, "Nunber of words the model"
                             "knows and stores representations for")
 tf.app.flags.DEFINE_integer("num_epochs", 1000, "Train for this number of"
                             "sweeps through the training set")
-tf.app.flags.DEFINE_string("data_dir", "../data/definitions/",
+tf.app.flags.DEFINE_string("data_dir", "./data/definitions/",
                            "Directory for finding"
                            "training data and dumping processed data.")
 tf.app.flags.DEFINE_string("train_file", "train.definitions.ids100000",
@@ -62,7 +62,7 @@ tf.app.flags.DEFINE_boolean("pretrained_target", True,
 tf.app.flags.DEFINE_boolean("pretrained_input", False,
                             "Use pre-trained embeddings for gloss words.")
 tf.app.flags.DEFINE_string("embeddings_path",
-                           "../embeddings/GoogleWord2Vec.clean.normed.pkl",
+                           "./embeddings/GoogleWord2Vec.clean.normed.pkl",
                            "Path to pre-trained (.pkl) word embeddings.")
 tf.app.flags.DEFINE_string("encoder_type", "recurrent", "BOW or recurrent.")
 tf.app.flags.DEFINE_string("model_name", "recurrent", "BOW or recurrent.")
