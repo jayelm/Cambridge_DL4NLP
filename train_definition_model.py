@@ -68,7 +68,7 @@ tf.app.flags.DEFINE_string("oov_init", "constant",
 tf.app.flags.DEFINE_string("embeddings_path",
                            "./embeddings/GoogleWord2Vec.clean.normed.pkl",
                            "Path to pre-trained (.pkl) word embeddings.")
-tf.app.flags.DEFINE_string("encoder_type", "recurrent", "BOW or recurrent.")
+tf.app.flags.DEFINE_string("encoder_type", "recurrent", "BOW, recurrent, or recurrent_gru")
 tf.app.flags.DEFINE_string("model_name", "recurrent", "BOW or recurrent.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam, rmsprop, or gradientdescent")
 
@@ -266,6 +266,12 @@ def build_model(max_seq_len,
             _, state = tf.nn.dynamic_rnn(cell, embs, dtype=tf.float32)
             # state is a pair: (hidden_state, output)
             core_out = state[0]
+        elif encoder_type == 'recurrent_gru':
+            cell = tf.nn.rnn_cell.GRUCell(emb_size)
+            # state is the final state of the RNN.
+            _, state = tf.nn.dynamic_rnn(cell, embs, dtype=tf.float32)
+            # state is a pair: (hidden_state, output)
+            core_out = state  # For GRU, state is not a tuple
         else:
             core_out = tf.reduce_mean(embs, axis=1)
         # core_out is the output from the gloss encoder.
