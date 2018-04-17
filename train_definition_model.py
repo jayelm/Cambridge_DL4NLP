@@ -151,12 +151,17 @@ def get_embedding_matrix(embedding_dict, vocab, emb_dim,
         emb_matrix = np.random.normal(size=[len(vocab), emb_dim])
     else:
         raise NotImplementedError
+    n_oovs = 0
+    n_in_vocab = 0
     for word, ii in vocab.items():
-        if word in embedding_dict:
+        if word in embedding_dict and word not in ('_PAD', '_UNK'):
             emb_matrix[ii] = embedding_dict[word]
+            n_in_vocab += 1
         else:
-            pass
-            #  print("OOV word when building embedding matrix: ", word)
+            n_oovs += 1
+    print("{}/{} oovs ({}%)".format(
+        n_oovs, n_oovs + n_in_vocab,
+        round((n_oovs / (n_oovs + n_in_vocab)) * 100, 3)))
     return np.asarray(emb_matrix)
 
 
