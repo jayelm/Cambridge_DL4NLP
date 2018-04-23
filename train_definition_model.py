@@ -68,6 +68,7 @@ tf.app.flags.DEFINE_string("oov_init", "constant",
 tf.app.flags.DEFINE_string("embeddings_path",
                            "./embeddings/GoogleWord2Vec.clean.normed.pkl",
                            "Path to pre-trained (.pkl) word embeddings.")
+tf.app.flags.DEFINE_string("cover_only", None, "Path to embeddings file to limit coverage")
 tf.app.flags.DEFINE_string("encoder_type", "recurrent", "BOW, recurrent, or recurrent_gru")
 tf.app.flags.DEFINE_string("model_name", "recurrent", "BOW or recurrent.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam, rmsprop, or gradientdescent")
@@ -123,7 +124,7 @@ def read_data(data_path, vocab_size, phase="train"):
     return np.asarray(glosses), np.array(heads, dtype=np.int32)
 
 
-def load_pretrained_embeddings(embeddings_file_path):
+def load_pretrained_embeddings(embeddings_file_path, cover_only=None):
     """Loads pre-trained word embeddings.
 
   Args:
@@ -135,6 +136,15 @@ def load_pretrained_embeddings(embeddings_file_path):
     print("Loading pretrained embeddings from %s" % embeddings_file_path)
     with open(embeddings_file_path, "rb") as input_file:
         pre_embs_dict = pickle.load(input_file, encoding='bytes')
+    if cover_only is not None:
+        print("Limiting coverage to embeddings from %s " % cover_only)
+        with open(cover_only, "rb") as cover_file:
+            limit_dict = pickle.load(cover_file, encoding='bytes')
+        prev_len = len(pre_embs_dict)
+        pre_embs_dict = {k: v for k, v in pre_embs_dict.items()
+                         if k in limit_dict}
+        new_len = len(pre_embs_dict)
+        print("Embedings dropped from {} to {} (lost {})".format(prev_len, new_len, prev_len - new_len))
     iter_keys = iter(pre_embs_dict.keys())
     first_key = next(iter_keys)
     embedding_length = len(pre_embs_dict[first_key])
@@ -539,7 +549,7 @@ def main(unused_argv):
         if FLAGS.pretrained_input or FLAGS.pretrained_target:
             # embs_dict is a dictionary from words to vectors.
             embs_dict, pre_emb_dim = load_pretrained_embeddings(
-                FLAGS.embeddings_path)
+                FLAGS.embeddings_path, cover_only=FLAGS.cover_only)
             if FLAGS.pretrained_input:
                 emb_size = pre_emb_dim
         else:
@@ -591,7 +601,7 @@ def main(unused_argv):
         # change "cosine" to "softmax"
         if FLAGS.pretrained_input or FLAGS.pretrained_target:
             embs_dict, pre_emb_dim = load_pretrained_embeddings(
-                FLAGS.embeddings_path)
+                FLAGS.embeddings_path, cover_only=FLAGS.cover_only)
             vocab, _ = data_utils.initialize_vocabulary(vocab_file)
             pre_embs = get_embedding_matrix(embs_dict, vocab, pre_emb_dim, FLAGS.oov_init)
 
